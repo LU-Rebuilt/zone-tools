@@ -87,32 +87,8 @@ jobs:
           path: artifacts
           merge-multiple: true
 
-      - name: Generate release notes
-        id: notes
-        run: |
-          CURRENT_TAG="${GITHUB_REF#refs/tags/}"
-          PREV_TAG=$(git tag --sort=-creatordate | grep -A1 "^${CURRENT_TAG}$" | tail -1)
-
-          {
-            echo 'BODY<<ENDOFNOTES'
-            if [ -n "$PREV_TAG" ] && [ "$PREV_TAG" != "$CURRENT_TAG" ]; then
-              RANGE="${PREV_TAG}..${CURRENT_TAG}"
-            else
-              RANGE="HEAD~20..HEAD"
-            fi
-
-            COMMITS=$(git log "$RANGE" --pretty=format:"%s" --no-merges)
-            FEAT=$(echo "$COMMITS" | grep -E '^feat(\(.+\))?: ' | sed 's/^/- /' || true)
-            FIX=$(echo "$COMMITS" | grep -E '^fix(\(.+\))?: ' | sed 's/^/- /' || true)
-
-            if [ -n "$FEAT" ]; then echo "### Features"; echo "$FEAT"; echo ""; fi
-            if [ -n "$FIX" ]; then echo "### Bug Fixes"; echo "$FIX"; echo ""; fi
-
-            echo 'ENDOFNOTES'
-          } >> "$GITHUB_OUTPUT"
-
       - name: Create release
         uses: softprops/action-gh-release@v2
         with:
           files: artifacts/*
-          body: ${{ steps.notes.outputs.BODY }}
+          generate_release_notes: true
