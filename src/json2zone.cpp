@@ -10,9 +10,30 @@
 
 namespace fs = std::filesystem;
 
+static void print_help() {
+    std::fprintf(stderr,
+        "json2zone — Convert JSON back to LEGO Universe zone files\n"
+        "\n"
+        "Usage: json2zone <input.json> <output.luz|output.lvl>\n"
+        "\n"
+        "Converts a JSON file back to a LUZ (zone) or LVL (scene/level) binary file.\n"
+        "The output format is determined by the output file extension.\n"
+        "\n"
+        "Options:\n"
+        "  -h, --help    Show this help message\n");
+}
+
 int main(int argc, char* argv[]) {
+    if (argc >= 2) {
+        std::string arg1 = argv[1];
+        if (arg1 == "-h" || arg1 == "--help") {
+            print_help();
+            return 0;
+        }
+    }
+
     if (argc < 3) {
-        std::fprintf(stderr, "Usage: json2zone <input.json> <output.luz|output.lvl>\n");
+        print_help();
         return 1;
     }
 

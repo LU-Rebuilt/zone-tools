@@ -10,6 +10,9 @@
 #include <QTreeView>
 #include <QSettings>
 #include <QUndoStack>
+#include <QDockWidget>
+
+class QUndoView;
 
 namespace zone_editor {
 
@@ -45,6 +48,8 @@ private:
     PropertiesPanel* properties_;
 
     QUndoStack* undo_stack_;
+    QDockWidget* undo_dock_;
+    QUndoView* undo_view_;
 };
 
 } // namespace zone_editor

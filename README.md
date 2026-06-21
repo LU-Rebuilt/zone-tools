@@ -45,7 +45,7 @@ cmake --build build --parallel
 
 Dependencies are fetched automatically via CMake FetchContent:
 - [lu-assets](https://github.com/LU-Rebuilt/lu-assets) — LUZ/LVL readers, writers, JSON serialization
-- [tool-common](https://github.com/LU-Rebuilt/tool-common) — shared Qt widgets (file browser, LDF table, Vec3/Quat editors, undo commands)
+- [tool-common](https://github.com/LU-Rebuilt/tool-common) — shared Qt widgets (file browser, LDF table, Vec3/Quat editors)
 
 ## Testing
 

@@ -16,10 +16,30 @@ static std::vector<uint8_t> read_file(const fs::path& path) {
     return {std::istreambuf_iterator<char>(in), std::istreambuf_iterator<char>()};
 }
 
+static void print_help() {
+    std::fprintf(stderr,
+        "zone2json — Convert LEGO Universe zone files to JSON\n"
+        "\n"
+        "Usage: zone2json <input.luz|input.lvl> [output.json]\n"
+        "\n"
+        "Converts a LUZ (zone) or LVL (scene/level) binary file to JSON.\n"
+        "The format is auto-detected from the file extension.\n"
+        "If no output path is given, writes to <input>.json.\n"
+        "\n"
+        "Options:\n"
+        "  -h, --help    Show this help message\n");
+}
+
 int main(int argc, char* argv[]) {
     if (argc < 2) {
-        std::fprintf(stderr, "Usage: zone2json <input.luz|input.lvl> [output.json]\n");
+        print_help();
         return 1;
+    }
+
+    std::string arg1 = argv[1];
+    if (arg1 == "-h" || arg1 == "--help") {
+        print_help();
+        return 0;
     }
 
     fs::path input(argv[1]);

@@ -11,6 +11,7 @@
 #include <QMessageBox>
 #include <QFileDialog>
 #include <QStatusBar>
+#include <QUndoView>
 
 #include <fstream>
 #include <QCloseEvent>
@@ -37,8 +38,21 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
     file_menu->addAction("&Quit", Qt::CTRL | Qt::Key_Q, this, &QWidget::close);
 
     auto* edit_menu = menuBar()->addMenu("&Edit");
-    edit_menu->addAction(undo_stack_->createUndoAction(this, "&Undo"));
-    edit_menu->addAction(undo_stack_->createRedoAction(this, "&Redo"));
+    auto* undo_action = undo_stack_->createUndoAction(this, "&Undo");
+    undo_action->setShortcut(QKeySequence::Undo);
+    edit_menu->addAction(undo_action);
+    auto* redo_action = undo_stack_->createRedoAction(this, "&Redo");
+    redo_action->setShortcut(QKeySequence::Redo);
+    edit_menu->addAction(redo_action);
+    edit_menu->addSeparator();
+
+    // Edit history dock
+    undo_view_ = new QUndoView(undo_stack_);
+    undo_view_->setEmptyLabel("<no changes>");
+    undo_dock_ = new QDockWidget("Edit History", this);
+    undo_dock_->setWidget(undo_view_);
+    addDockWidget(Qt::RightDockWidgetArea, undo_dock_);
+    edit_menu->addAction(undo_dock_->toggleViewAction());
 
     // Layout: 3-way horizontal splitter
     auto* splitter = new QSplitter(Qt::Horizontal);
