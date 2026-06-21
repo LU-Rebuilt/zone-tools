@@ -75,7 +75,7 @@ bool ClientContext::open(const fs::path& client_dir) {
     }
 
     sqlite3* db = nullptr;
-    if (sqlite3_open_v2(db_path.c_str(), &db, SQLITE_OPEN_READONLY, nullptr) != SQLITE_OK) {
+    if (sqlite3_open_v2(db_path.string().c_str(), &db, SQLITE_OPEN_READONLY, nullptr) != SQLITE_OK) {
         if (db) sqlite3_close(db);
         scan_for_luz_files();
         return !zones_.empty();

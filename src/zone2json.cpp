@@ -46,11 +46,11 @@ int main(int argc, char* argv[]) {
 
     std::ofstream out(output);
     if (!out) {
-        std::fprintf(stderr, "Error: cannot write %s\n", output.c_str());
+        std::fprintf(stderr, "Error: cannot write %s\n", output.string().c_str());
         return 1;
     }
     out << j.dump(2) << '\n';
 
-    std::fprintf(stderr, "Wrote %s\n", output.c_str());
+    std::fprintf(stderr, "Wrote %s\n", output.string().c_str());
     return 0;
 }

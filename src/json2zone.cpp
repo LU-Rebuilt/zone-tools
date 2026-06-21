@@ -29,7 +29,7 @@ int main(int argc, char* argv[]) {
 
     std::ifstream in(input);
     if (!in) {
-        std::fprintf(stderr, "Error: cannot open %s\n", input.c_str());
+        std::fprintf(stderr, "Error: cannot open %s\n", input.string().c_str());
         return 1;
     }
 
@@ -56,11 +56,11 @@ int main(int argc, char* argv[]) {
 
     std::ofstream out(output, std::ios::binary);
     if (!out) {
-        std::fprintf(stderr, "Error: cannot write %s\n", output.c_str());
+        std::fprintf(stderr, "Error: cannot write %s\n", output.string().c_str());
         return 1;
     }
     out.write(reinterpret_cast<const char*>(data.data()), data.size());
 
-    std::fprintf(stderr, "Wrote %s (%zu bytes)\n", output.c_str(), data.size());
+    std::fprintf(stderr, "Wrote %s (%zu bytes)\n", output.string().c_str(), data.size());
     return 0;
 }
