@@ -18,9 +18,11 @@ FetchContent_MakeAvailable(lu_assets)
 
 add_executable(zone2json src/zone2json.cpp)
 target_link_libraries(zone2json PRIVATE lu_assets)
+target_include_directories(zone2json PRIVATE src)
 
 add_executable(json2zone src/json2zone.cpp)
 target_link_libraries(json2zone PRIVATE lu_assets)
+target_include_directories(json2zone PRIVATE src)
 
 # ── GUI editor (Qt6) ─────────────────────────────────────────────────────────
 

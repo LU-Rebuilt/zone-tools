@@ -5,7 +5,7 @@
 #include <sstream>
 #include <string>
 
-namespace zone_editor {
+namespace zone_tools {
 
 inline std::filesystem::path resolve_case_insensitive(
     const std::filesystem::path& base, const std::string& relative) {
@@ -44,4 +44,4 @@ inline std::filesystem::path resolve_case_insensitive(
     return current;
 }
 
-} // namespace zone_editor
+} // namespace zone_tools

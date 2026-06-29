@@ -29,7 +29,7 @@ static bool write_file(const fs::path& path, const std::vector<uint8_t>& data) {
 
 bool ZoneDocument::load_from_cdclient(const std::string& cdclient_luz_path, const fs::path& res_dir) {
     fs::path maps_dir = res_dir / "maps";
-    fs::path resolved = resolve_case_insensitive(maps_dir, cdclient_luz_path);
+    fs::path resolved = zone_tools::resolve_case_insensitive(maps_dir, cdclient_luz_path);
     return load(resolved, res_dir);
 }
 
@@ -51,7 +51,7 @@ bool ZoneDocument::load(const fs::path& luz_path, const fs::path& res_dir) {
     fs::path luz_dir = luz_path.parent_path();
 
     for (uint32_t i = 0; i < static_cast<uint32_t>(luz_.scenes.size()); ++i) {
-        fs::path scene_path = resolve_case_insensitive(luz_dir, luz_.scenes[i].filename);
+        fs::path scene_path = zone_tools::resolve_case_insensitive(luz_dir, luz_.scenes[i].filename);
         scene_paths_[i] = scene_path;
 
         if (!fs::exists(scene_path)) continue;

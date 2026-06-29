@@ -136,7 +136,7 @@ bool ClientContext::open(const fs::path& client_dir) {
         // Only include zones whose LUZ file actually exists on disk
         if (!info.luz_path.empty()) {
             fs::path maps_dir = res_dir_ / "maps";
-            fs::path resolved = resolve_case_insensitive(maps_dir, info.luz_path);
+            fs::path resolved = zone_tools::resolve_case_insensitive(maps_dir, info.luz_path);
             if (fs::exists(resolved)) {
                 zones_.push_back(std::move(info));
             }
