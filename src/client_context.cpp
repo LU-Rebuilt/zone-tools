@@ -38,9 +38,14 @@ bool ClientContext::open(const fs::path& client_dir) {
         res_dir_ = client_dir;
     }
 
-    auto locale_path = client_dir / "locale" / "locale.xml";
-    if (fs::exists(locale_path)) {
-        load_locale(locale_path);
+    for (auto& candidate : {
+        client_dir / "locale" / "locale.xml",
+        res_dir_   / "locale" / "locale.xml",
+    }) {
+        if (fs::exists(candidate)) {
+            load_locale(candidate);
+            break;
+        }
     }
 
     lu::assets::CdClient cdclient;

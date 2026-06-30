@@ -11,6 +11,17 @@ static std::string fmt_vec3(const lu::assets::Vec3& v) {
     return s.str();
 }
 
+static std::string ldf_search_str(const std::vector<lu::assets::LdfEntry>& config) {
+    std::string out;
+    for (auto& e : config) {
+        out += ' ';
+        out += e.key;
+        out += '=';
+        out += e.raw_value;
+    }
+    return out;
+}
+
 static std::unique_ptr<ZoneTreeNode> make_node(NodeType type, const std::string& name,
                                                 const std::string& summary = {},
                                                 int index = -1) {
@@ -185,7 +196,7 @@ void ZoneTreeModel::add_scene_nodes(ZoneTreeNode* scenes_group) {
                         std::string name = ctx_->lot_name(obj.lot);
                         if (!name.empty()) obj_label = name + " (" + std::to_string(obj.lot) + ")";
                     }
-                    std::string obj_summary = fmt_vec3(obj.position);
+                    std::string obj_summary = fmt_vec3(obj.position) + ldf_search_str(obj.config);
                     auto on = make_node(NodeType::Object, obj_label, obj_summary, j);
                     on->scene_index = i;
                     add_child(objs.get(), std::move(on));
@@ -200,8 +211,8 @@ void ZoneTreeModel::add_scene_nodes(ZoneTreeNode* scenes_group) {
                         auto& p = lvl.particles[j];
                         auto pn = make_node(NodeType::Particle,
                                             p.effect_names.empty() ? "Particle " + std::to_string(j)
-                                                                   : p.effect_names.substr(0, 40),
-                                            fmt_vec3(p.position), j);
+                                                                   : p.effect_names,
+                                            fmt_vec3(p.position) + ldf_search_str(p.config), j);
                         pn->scene_index = i;
                         add_child(parts.get(), std::move(pn));
                     }
