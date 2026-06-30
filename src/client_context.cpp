@@ -33,14 +33,23 @@ bool ClientContext::open(const fs::path& client_dir) {
     client_dir_ = client_dir;
     zones_.clear();
 
-    res_dir_ = client_dir / "res";
+    // Some early clients nest everything under a "client/" subdirectory
+    fs::path effective_root = client_dir;
+    if (!fs::exists(client_dir / "res") &&
+        !fs::exists(client_dir / "maps") &&
+        fs::exists(client_dir / "client" / "maps")) {
+        effective_root = client_dir / "client";
+    }
+
+    res_dir_ = effective_root / "res";
     if (!fs::exists(res_dir_)) {
-        res_dir_ = client_dir;
+        res_dir_ = effective_root; // clients that put maps/fdb directly at root
     }
 
     for (auto& candidate : {
-        client_dir / "locale" / "locale.xml",
-        res_dir_   / "locale" / "locale.xml",
+        effective_root / "locale" / "locale.xml",
+        res_dir_       / "locale" / "locale.xml",
+        client_dir     / "locale" / "locale.xml",
     }) {
         if (fs::exists(candidate)) {
             load_locale(candidate);

@@ -169,7 +169,7 @@ void MainWindow::open_client_dir(const std::string& path) {
     if (!client_.open(path)) {
         QMessageBox::critical(this, "Error",
             QString("Failed to open client at %1.\n"
-                    "Make sure the directory contains res/cdclient.sqlite")
+                    "No zones or database found. Make sure this is a LEGO Universe client directory.")
             .arg(QString::fromStdString(path)));
         return;
     }
