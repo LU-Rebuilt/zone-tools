@@ -1,12 +1,12 @@
 #pragma once
 
+#include "netdevil/database/cdclient/cdclient.h"
+
 #include <cstdint>
 #include <filesystem>
 #include <string>
 #include <unordered_map>
 #include <vector>
-
-struct sqlite3;
 
 namespace zone_editor {
 
@@ -32,7 +32,7 @@ public:
 
 private:
     void load_locale(const std::filesystem::path& locale_path);
-    void load_object_names(sqlite3* db);
+    void load_object_names(lu::assets::CdClient& db);
     void scan_for_luz_files();
 
     std::filesystem::path client_dir_;

@@ -1,10 +1,7 @@
 #include "client_context.h"
 #include "path_resolve.h"
 
-#include "netdevil/database/cdclient/cdclient.h"
-
 #include <pugixml.hpp>
-#include <sqlite3.h>
 
 #include <algorithm>
 
@@ -41,70 +38,51 @@ bool ClientContext::open(const fs::path& client_dir) {
         res_dir_ = client_dir;
     }
 
-    // Load locale
     auto locale_path = client_dir / "locale" / "locale.xml";
     if (fs::exists(locale_path)) {
         load_locale(locale_path);
     }
 
-    // Use lu-assets CdClient to handle FDB→SQLite conversion (supports cdclient.fdb and ivantest.fdb)
     lu::assets::CdClient cdclient;
     if (!cdclient.open_from_client(client_dir)) {
-        // No CDClient database found — fall back to scanning for .luz files
         scan_for_luz_files();
         return !zones_.empty();
     }
 
-    // Find the sqlite file that CdClient opened/converted
-    fs::path db_path;
-    for (auto& candidate : {
-        res_dir_ / "CDServer.sqlite",
-        res_dir_ / "cdclient.sqlite",
-        client_dir / "CDServer.sqlite",
-        client_dir / "cdclient.sqlite",
-        res_dir_ / "cdclient.converted.sqlite",
-        client_dir / "cdclient.converted.sqlite",
-        res_dir_ / "ivantest.converted.sqlite",
-        client_dir / "ivantest.converted.sqlite",
-    }) {
-        if (fs::exists(candidate)) { db_path = candidate; break; }
-    }
-    if (db_path.empty()) {
-        scan_for_luz_files();
-        return !zones_.empty();
-    }
+    // ZoneTable → zone list (resolve column indices by name for schema robustness)
+    auto zt_cols = cdclient.table_columns("ZoneTable");
+    auto zt_col = [&](const char* name) -> int {
+        for (int i = 0; i < (int)zt_cols.size(); ++i)
+            if (zt_cols[i] == name) return i;
+        return -1;
+    };
+    int zt_id   = zt_col("zoneID");
+    int zt_name = zt_col("zoneName");
+    int zt_desc = zt_col("DisplayDescription");
 
-    sqlite3* db = nullptr;
-    if (sqlite3_open_v2(db_path.string().c_str(), &db, SQLITE_OPEN_READONLY, nullptr) != SQLITE_OK) {
-        if (db) sqlite3_close(db);
-        scan_for_luz_files();
-        return !zones_.empty();
-    }
+    cdclient.query_each("ZoneTable", "", {}, [&](const lu::assets::CdRow& row) {
+        if (zt_id < 0 || zt_name < 0) return;
 
-    sqlite3_stmt* stmt = nullptr;
-    const char* sql = "SELECT zoneID, zoneName, DisplayDescription FROM ZoneTable ORDER BY zoneID";
-    if (sqlite3_prepare_v2(db, sql, -1, &stmt, nullptr) != SQLITE_OK) {
-        sqlite3_close(db);
-        return false;
-    }
-
-    while (sqlite3_step(stmt) == SQLITE_ROW) {
         ZoneInfo info;
-        info.zone_id = sqlite3_column_int(stmt, 0);
+        if (auto* v = std::get_if<int32_t>(&row[zt_id])) info.zone_id = *v;
+        else return;
 
-        const char* zone_name = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 1));
-        info.luz_path = zone_name ? zone_name : "";
+        std::string zone_name_col;
+        if (auto* v = std::get_if<std::string>(&row[zt_name])) zone_name_col = *v;
 
-        const char* desc = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 2));
-        std::string desc_str = desc ? desc : "";
-
-        // Skip entries where zoneName is a locale key, not a file path
-        if (info.luz_path.find("__removed") != std::string::npos ||
-            (info.luz_path.find('.') == std::string::npos && !info.luz_path.empty())) {
-            info.luz_path.clear();
+        std::string desc_str;
+        if (zt_desc >= 0 && zt_desc < (int)row.size()) {
+            if (auto* v = std::get_if<std::string>(&row[zt_desc])) desc_str = *v;
         }
 
-        // Display name: use DisplayDescription (direct or locale lookup)
+        // zoneName column is a file path; skip locale keys and entries without extensions
+        if (zone_name_col.find("__removed") != std::string::npos ||
+            (zone_name_col.find('.') == std::string::npos && !zone_name_col.empty())) {
+            zone_name_col.clear();
+        }
+        info.luz_path = zone_name_col;
+
+        // Display name: locale lookup on desc, or direct string
         if (!desc_str.empty()) {
             auto it = locale_strings_.find(desc_str);
             if (it != locale_strings_.end()) {
@@ -113,27 +91,18 @@ bool ClientContext::open(const fs::path& client_dir) {
                 info.display_name = desc_str;
             }
         }
-
-        // Try locale lookup with standard key pattern
         if (info.display_name.empty()) {
             std::string key = "ZoneTable_" + std::to_string(info.zone_id) + "_DisplayDescription";
             auto it = locale_strings_.find(key);
-            if (it != locale_strings_.end()) {
-                info.display_name = it->second;
-            }
+            if (it != locale_strings_.end()) info.display_name = it->second;
         }
-
-        // Fallback: derive from luz path stem
         if (info.display_name.empty() && !info.luz_path.empty()) {
-            fs::path p(info.luz_path);
-            info.display_name = p.stem().string();
+            info.display_name = fs::path(info.luz_path).stem().string();
         }
-
         if (info.display_name.empty()) {
             info.display_name = "Zone " + std::to_string(info.zone_id);
         }
 
-        // Only include zones whose LUZ file actually exists on disk
         if (!info.luz_path.empty()) {
             fs::path maps_dir = res_dir_ / "maps";
             fs::path resolved = zone_tools::resolve_case_insensitive(maps_dir, info.luz_path);
@@ -141,43 +110,52 @@ bool ClientContext::open(const fs::path& client_dir) {
                 zones_.push_back(std::move(info));
             }
         }
-    }
+    });
 
-    sqlite3_finalize(stmt);
-
-    // Build zone display name map
     for (auto& z : zones_) {
         zone_display_names_[z.zone_id] = z.display_name;
     }
 
-    load_object_names(db);
+    load_object_names(cdclient);
 
-    sqlite3_close(db);
     return true;
 }
 
-void ClientContext::load_object_names(sqlite3* db) {
-    sqlite3_stmt* stmt = nullptr;
-    const char* sql = "SELECT id, name, displayName FROM Objects";
-    if (sqlite3_prepare_v2(db, sql, -1, &stmt, nullptr) != SQLITE_OK) return;
+void ClientContext::load_object_names(lu::assets::CdClient& db) {
+    auto cols = db.table_columns("Objects");
+    auto col = [&](const char* name) -> int {
+        for (int i = 0; i < (int)cols.size(); ++i)
+            if (cols[i] == name) return i;
+        return -1;
+    };
+    int c_id      = col("id");
+    int c_name    = col("name");
+    int c_display = col("displayName");
 
-    while (sqlite3_step(stmt) == SQLITE_ROW) {
-        uint32_t id = static_cast<uint32_t>(sqlite3_column_int(stmt, 0));
-        const char* name = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 1));
-        const char* display = reinterpret_cast<const char*>(sqlite3_column_text(stmt, 2));
+    db.query_each("Objects", "", {}, [&](const lu::assets::CdRow& row) {
+        if (c_id < 0) return;
 
-        std::string display_str = (display && display[0]) ? display : "";
-        std::string name_str = (name && name[0]) ? name : "";
+        uint32_t id = 0;
+        if (auto* v = std::get_if<int32_t>(&row[c_id])) id = static_cast<uint32_t>(*v);
+        else return;
+
+        std::string name_str;
+        if (c_name >= 0 && c_name < (int)row.size()) {
+            if (auto* v = std::get_if<std::string>(&row[c_name])) name_str = *v;
+        }
+
+        std::string display_str;
+        if (c_display >= 0 && c_display < (int)row.size()) {
+            if (auto* v = std::get_if<std::string>(&row[c_display])) display_str = *v;
+        }
 
         if (!display_str.empty()) {
-            // Resolve locale key
             auto it = locale_strings_.find(display_str);
             lot_names_[id] = (it != locale_strings_.end()) ? it->second : display_str;
         } else if (!name_str.empty()) {
             lot_names_[id] = name_str;
         }
-    }
-    sqlite3_finalize(stmt);
+    });
 }
 
 std::string ClientContext::lot_name(uint32_t lot) const {
