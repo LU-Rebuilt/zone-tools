@@ -33,17 +33,29 @@ bool ClientContext::open(const fs::path& client_dir) {
     client_dir_ = client_dir;
     zones_.clear();
 
-    // Some early clients nest everything under a "client/" subdirectory
+    // Count immediate children of a directory (0 if doesn't exist).
+    auto dir_entry_count = [](const fs::path& p) -> int {
+        if (!fs::exists(p) || !fs::is_directory(p)) return 0;
+        int n = 0;
+        for (auto& e : fs::directory_iterator(p)) { (void)e; ++n; }
+        return n;
+    };
+
+    // Resolve effective client root:
+    //   - Prefer client/res/ when it has more map entries than root/res/
+    //     (handles 0.179.12 which has both but only client/ has real zones)
+    //   - Standard res/ layout otherwise
+    //   - Fall back to root itself for clients with no res/ (1.7.45, 1.9.76, 1.10.64)
     fs::path effective_root = client_dir;
-    if (!fs::exists(client_dir / "res") &&
-        !fs::exists(client_dir / "maps") &&
-        fs::exists(client_dir / "client" / "maps")) {
+    int root_maps  = dir_entry_count(client_dir / "res" / "maps");
+    int inner_maps = dir_entry_count(client_dir / "client" / "res" / "maps");
+    if (inner_maps > root_maps) {
         effective_root = client_dir / "client";
     }
 
     res_dir_ = effective_root / "res";
     if (!fs::exists(res_dir_)) {
-        res_dir_ = effective_root; // clients that put maps/fdb directly at root
+        res_dir_ = effective_root; // clients that put maps/fdb directly at root (1.7.45+)
     }
 
     for (auto& candidate : {
