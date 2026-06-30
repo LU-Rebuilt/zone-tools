@@ -6,7 +6,9 @@
 #include "zone_list_panel.h"
 #include "properties_panel.h"
 
+#include <QLineEdit>
 #include <QMainWindow>
+#include <QSortFilterProxyModel>
 #include <QTreeView>
 #include <QSettings>
 #include <QUndoStack>
@@ -44,6 +46,8 @@ private:
 
     ZoneListPanel* zone_list_;
     ZoneTreeModel* tree_model_;
+    QSortFilterProxyModel* tree_proxy_;
+    QLineEdit* search_box_;
     QTreeView* tree_view_;
     PropertiesPanel* properties_;
 

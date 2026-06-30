@@ -12,11 +12,46 @@
 #include <QFileDialog>
 #include <QStatusBar>
 #include <QUndoView>
+#include <QVBoxLayout>
+#include <QWidget>
 
 #include <fstream>
 #include <QCloseEvent>
 
 namespace zone_editor {
+
+// Proxy model that keeps parent nodes visible when any descendant matches the filter.
+class TreeFilterProxy : public QSortFilterProxyModel {
+public:
+    using QSortFilterProxyModel::QSortFilterProxyModel;
+
+protected:
+    bool filterAcceptsRow(int source_row, const QModelIndex& source_parent) const override {
+        if (filterRegularExpression().pattern().isEmpty()) return true;
+        QModelIndex idx = sourceModel()->index(source_row, 0, source_parent);
+        if (matches(idx)) return true;
+        return has_matching_child(idx);
+    }
+
+private:
+    bool matches(const QModelIndex& idx) const {
+        // Check both columns (name and summary)
+        for (int col = 0; col < sourceModel()->columnCount(idx.parent()); ++col) {
+            QModelIndex ci = sourceModel()->index(idx.row(), col, idx.parent());
+            if (ci.data().toString().contains(filterRegularExpression())) return true;
+        }
+        return false;
+    }
+
+    bool has_matching_child(const QModelIndex& parent) const {
+        int rows = sourceModel()->rowCount(parent);
+        for (int r = 0; r < rows; ++r) {
+            QModelIndex child = sourceModel()->index(r, 0, parent);
+            if (matches(child) || has_matching_child(child)) return true;
+        }
+        return false;
+    }
+};
 
 MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
     setWindowTitle("LU Zone Editor");
@@ -62,14 +97,30 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
     zone_list_ = new ZoneListPanel;
     splitter->addWidget(zone_list_);
 
-    // Center: tree view
+    // Center: search box + tree view
     tree_model_ = new ZoneTreeModel(this);
+    tree_proxy_ = new TreeFilterProxy(this);
+    tree_proxy_->setSourceModel(tree_model_);
+    tree_proxy_->setFilterCaseSensitivity(Qt::CaseInsensitive);
+    tree_proxy_->setFilterKeyColumn(-1); // handled by custom filterAcceptsRow
+
+    search_box_ = new QLineEdit;
+    search_box_->setPlaceholderText("Search zone...");
+    search_box_->setClearButtonEnabled(true);
+
     tree_view_ = new QTreeView;
-    tree_view_->setModel(tree_model_);
+    tree_view_->setModel(tree_proxy_);
     tree_view_->setHeaderHidden(false);
     tree_view_->setAlternatingRowColors(true);
     tree_view_->setContextMenuPolicy(Qt::CustomContextMenu);
-    splitter->addWidget(tree_view_);
+
+    auto* center = new QWidget;
+    auto* center_layout = new QVBoxLayout(center);
+    center_layout->setContentsMargins(0, 0, 0, 0);
+    center_layout->setSpacing(2);
+    center_layout->addWidget(search_box_);
+    center_layout->addWidget(tree_view_);
+    splitter->addWidget(center);
 
     // Right: properties
     properties_ = new PropertiesPanel;
@@ -84,9 +135,14 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
             this, &MainWindow::on_tree_selection_changed);
     connect(properties_, &PropertiesPanel::data_changed, this, [this]() {
         tree_model_->rebuild();
+        if (!search_box_->text().isEmpty()) tree_view_->expandAll();
         update_title();
     });
     connect(tree_view_, &QTreeView::customContextMenuRequested, this, &MainWindow::on_tree_context_menu);
+    connect(search_box_, &QLineEdit::textChanged, this, [this](const QString& text) {
+        tree_proxy_->setFilterFixedString(text);
+        if (!text.isEmpty()) tree_view_->expandAll();
+    });
 
     statusBar()->showMessage("Open a client directory to get started.");
 }
@@ -189,12 +245,12 @@ void MainWindow::on_zone_selected(int zone_id, const QString& luz_path) {
 }
 
 void MainWindow::on_tree_selection_changed() {
-    auto idx = tree_view_->currentIndex();
-    if (!idx.isValid()) {
+    auto proxy_idx = tree_view_->currentIndex();
+    if (!proxy_idx.isValid()) {
         properties_->clear();
         return;
     }
-    auto* node = tree_model_->node_at(idx);
+    auto* node = tree_model_->node_at(tree_proxy_->mapToSource(proxy_idx));
     properties_->show_node(node, &doc_);
 }
 
@@ -279,10 +335,10 @@ void MainWindow::on_import_json() {
 }
 
 void MainWindow::on_tree_context_menu(const QPoint& pos) {
-    auto idx = tree_view_->indexAt(pos);
-    if (!idx.isValid() || !doc_.is_loaded()) return;
+    auto proxy_idx = tree_view_->indexAt(pos);
+    if (!proxy_idx.isValid() || !doc_.is_loaded()) return;
 
-    auto* node = tree_model_->node_at(idx);
+    auto* node = tree_model_->node_at(tree_proxy_->mapToSource(proxy_idx));
     if (!node) return;
 
     auto refresh = [this]() {
