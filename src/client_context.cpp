@@ -149,9 +149,11 @@ void ClientContext::load_object_names(lu::assets::CdClient& db) {
             if (auto* v = std::get_if<std::string>(&row[c_display])) display_str = *v;
         }
 
-        if (!display_str.empty()) {
-            auto it = locale_strings_.find(display_str);
-            lot_names_[id] = (it != locale_strings_.end()) ? it->second : display_str;
+        // Primary: locale key Objects_{id}_name
+        std::string locale_key = "Objects_" + std::to_string(id) + "_name";
+        auto it = locale_strings_.find(locale_key);
+        if (it != locale_strings_.end() && !it->second.empty()) {
+            lot_names_[id] = it->second;
         } else if (!name_str.empty()) {
             lot_names_[id] = name_str;
         }
