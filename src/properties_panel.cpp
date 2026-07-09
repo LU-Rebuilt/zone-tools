@@ -316,10 +316,19 @@ void PropertiesPanel::show_zone_properties(ZoneDocument* doc) {
             [doc]() -> uint32_t& { return doc->luz().world_id; }, dirty);
     add_string("Raw Path", doc->luz().raw_path,
                [doc]() -> std::string& { return doc->luz().raw_path; }, dirty);
+    // Editing either field marks it present so luz_write emits it even for a version==30
+    // file that didn't originally carry one (see LuzFile::has_zone_name/has_zone_description
+    // — version > 30 files ignore these flags and always write both regardless).
     add_string("Zone Name", doc->luz().zone_name,
-               [doc]() -> std::string& { return doc->luz().zone_name; }, dirty);
+               [doc]() -> std::string& {
+                   doc->luz().has_zone_name = true;
+                   return doc->luz().zone_name;
+               }, dirty);
     add_string("Zone Description", doc->luz().zone_description,
-               [doc]() -> std::string& { return doc->luz().zone_description; }, dirty);
+               [doc]() -> std::string& {
+                   doc->luz().has_zone_description = true;
+                   return doc->luz().zone_description;
+               }, dirty);
     add_vec3("Spawn Position", doc->luz().spawn_position,
              [doc]() -> lu::assets::Vec3& { return doc->luz().spawn_position; }, dirty);
     add_quat("Spawn Rotation", doc->luz().spawn_rotation,
